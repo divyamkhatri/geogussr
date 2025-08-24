@@ -2,12 +2,11 @@ services:
   - type: web
     name: geoguessr-clone
     env: docker
-    dockerfilePath: ./Dockerfile
-    plan: starter  # You can change this to 'standard' or 'pro' if needed
+    dockerfilePath: Dockerfile
+    plan: starter
     healthCheckPath: /
     envVars:
       - key: FLASK_ENV
         value: production
       - key: PORT
         value: 5000
-    # Render will automatically detect port 5000 from your Dockerfile EXPOSE directive
