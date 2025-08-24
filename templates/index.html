@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoGuessr Clone</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .start-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+        }
+
+        .start-screen h1 {
+            font-size: 3em;
+            margin-bottom: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .start-btn {
+            padding: 15px 30px;
+            font-size: 1.5em;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+
+        .start-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .streetview-container {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+        }
+
+        .streetview-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .map-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 300px;
+            height: 250px;
+            z-index: 1000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+            pointer-events: auto;
+        }
+
+        .map-container.expanded {
+            width: 75vw;
+            height: 75vh;
+            top: 12.5vh;
+            left: 12.5vw;
+        }
+
+        .expand-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1001;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .expand-btn:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+
+        .expand-btn.hidden {
+            display: none;
+        }
+
+        .expand-icon {
+            width: 16px;
+            height: 16px;
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>');
+            background-size: contain;
+            background-repeat: no-repeat;
+            color: #333;
+        }
+
+        #guess-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .submit-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #00b894, #00a085);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            z-index: 1001;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .results-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            width: 60vw;
+            height: 60vh;
+            max-width: none;
+            max-height: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .results-content h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2em;
+            flex-shrink: 0;
+        }
+
+        .result-stats {
+            margin: 20px 0;
+            font-size: 1.2em;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+        }
+
+        .result-stats div {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            flex: 1;
+        }
+
+        #results-map {
+            flex: 1;
+            margin: 20px 0;
+            border-radius: 8px;
+            min-height: 250px;
+        }
+
+        .play-again-btn {
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            align-self: center;
+        }
+
+        .play-again-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 1.5em;
+            z-index: 1000;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            color: #ff4757;
+            background: rgba(255, 71, 87, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 71, 87, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="start-screen">
+            <h1>🌍 GeoGuessr Clone</h1>
+            <p style="margin-bottom: 2rem; font-size: 1.2em;">Guess where you are in the world!</p>
+            <button id="start-btn" class="start-btn">Start Game</button>
+            <div id="error-container"></div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="game-container" style="display: none;">
+            <div class="streetview-container">
+                <iframe id="streetview-frame" class="streetview-frame"></iframe>
+            </div>
+            
+            <div id="map-container" class="map-container">
+                <div id="guess-map"></div>
+                <div id="expand-btn" class="expand-btn" title="Expand map">
+                    <div class="expand-icon"></div>
+                </div>
+            </div>
+            
+            <button id="submit-btn" class="submit-btn" disabled>Submit Guess</button>
+            
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                Loading Street View...
+            </div>
+        </div>
+
+        <!-- Results Modal -->
+        <div id="results-modal" class="results-modal">
+            <div class="results-content">
+                <h2>Results</h2>
+                <div class="result-stats">
+                    <div><strong>Distance:</strong> <span id="result-distance"></span> km</div>
+                    <div><strong>Score:</strong> <span id="result-score"></span> / 5000</div>
+                </div>
+                <div id="results-map"></div>
+                <button id="play-again-btn" class="play-again-btn">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let guessMap = null;
+        let resultsMap = null;
+        let currentGuess = null;
+        let mapExpanded = false;
+        let gameData = null;
+
+        // DOM elements
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const startBtn = document.getElementById('start-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        const streetviewFrame = document.getElementById('streetview-frame');
+        const mapContainer = document.getElementById('map-container');
+        const expandBtn = document.getElementById('expand-btn');
+        const resultsModal = document.getElementById('results-modal');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const loading = document.getElementById('loading');
+        const errorContainer = document.getElementById('error-container');
+
+        // Initialize guess map
+        async function initGuessMap() {
+            if (guessMap) {
+                guessMap.remove();
+            }
+            
+            // Get bounding area center
+            try {
+                const response = await fetch('/get_bounds');
+                const data = await response.json();
+                
+                const centerLat = data.center_lat || 20;
+                const centerLon = data.center_lon || 0;
+                
+                guessMap = L.map('guess-map').setView([centerLat, centerLon], 6);
+            } catch (error) {
+                console.error('Error getting bounds:', error);
+                guessMap = L.map('guess-map').setView([20, 0], 2);
+            }
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(guessMap);
+
+            guessMap.on('click', function(e) {
+                e.originalEvent.stopPropagation(); // Prevent map container click event
+                
+                if (currentGuess) {
+                    guessMap.removeLayer(currentGuess);
+                }
+                
+                currentGuess = L.marker([e.latlng.lat, e.latlng.lng]).addTo(guessMap);
+                submitBtn.disabled = false;
+            });
+        }
+
+        // Initialize results map
+        function initResultsMap(actualLat, actualLon, guessLat, guessLon) {
+            if (resultsMap) {
+                resultsMap.remove();
+            }
+            
+            resultsMap = L.map('results-map');
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(resultsMap);
+
+            // Add actual location marker (green)
+            const actualMarker = L.marker([actualLat, actualLon])
+                .addTo(resultsMap)
+                .bindPopup(`<strong>Actual Location</strong><br>Lat: ${actualLat.toFixed(4)}<br>Lng: ${actualLon.toFixed(4)}`, {autoClose: false})
+                .setIcon(L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                }));
+
+            // Add guess marker (red)
+            const guessMarker = L.marker([guessLat, guessLon])
+                .addTo(resultsMap)
+                .bindPopup(`<strong>Your Guess</strong><br>Lat: ${guessLat.toFixed(4)}<br>Lng: ${guessLon.toFixed(4)}`, {autoClose: false})
+                .setIcon(L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                }));
+
+            // Draw line between points
+            L.polyline([[actualLat, actualLon], [guessLat, guessLon]], {
+                color: '#3388ff', 
+                weight: 3,
+                opacity: 0.8,
+                dashArray: '10, 5'
+            }).addTo(resultsMap);
+
+            // Create bounds and fit map to show both markers with padding
+            const bounds = L.latLngBounds([[actualLat, actualLon], [guessLat, guessLon]]);
+            
+            // Add extra padding to ensure both markers are clearly visible
+            const paddingOptions = {
+                padding: [50, 50],
+                maxZoom: 16  // Prevent zooming too close if points are very close together
+            };
+            
+            // If the points are very close, add some minimum bounds
+            const distance = bounds.getNorthEast().distanceTo(bounds.getSouthWest());
+            if (distance < 1000) { // If less than 1km apart
+                const center = bounds.getCenter();
+                const expandedBounds = L.latLngBounds(
+                    [center.lat - 0.01, center.lng - 0.01],
+                    [center.lat + 0.01, center.lng + 0.01]
+                );
+                resultsMap.fitBounds(expandedBounds, paddingOptions);
+            } else {
+                resultsMap.fitBounds(bounds, paddingOptions);
+            }
+
+            // Open popups after a short delay to show coordinates
+            setTimeout(() => {
+                actualMarker.openPopup();
+            }, 500);
+        }
+
+        // Handle map expansion with dedicated button
+        expandBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            mapExpanded = true;
+            mapContainer.classList.add('expanded');
+            expandBtn.classList.add('hidden');
+            
+            // Resize map after transition
+            setTimeout(() => {
+                if (guessMap) {
+                    guessMap.invalidateSize();
+                }
+            }, 300);
+        });
+
+        // Add click listener to document to shrink map when clicking outside
+        document.addEventListener('click', function(e) {
+            if (mapExpanded && !mapContainer.contains(e.target)) {
+                mapExpanded = false;
+                mapContainer.classList.remove('expanded');
+                expandBtn.classList.remove('hidden');
+                
+                // Resize map after transition
+                setTimeout(() => {
+                    if (guessMap) {
+                        guessMap.invalidateSize();
+                    }
+                }, 300);
+            }
+        });
+
+        // Start game
+        startBtn.addEventListener('click', async function() {
+            startBtn.disabled = true;
+            startBtn.textContent = 'Loading...';
+            errorContainer.innerHTML = '';
+
+            try {
+                const response = await fetch('/start_game', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    startScreen.style.display = 'none';
+                    gameScreen.style.display = 'block';
+                    loading.style.display = 'block';
+                    
+                    streetviewFrame.src = data.embed_url;
+                    
+                    // Wait a bit for the iframe to load
+                    setTimeout(async () => {
+                        loading.style.display = 'none';
+                        await initGuessMap();
+                    }, 3000);
+                } else {
+                    throw new Error(data.error || 'Failed to start game');
+                }
+            } catch (error) {
+                console.error('Error starting game:', error);
+                errorContainer.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Game';
+            }
+        });
+
+        // Submit guess
+        submitBtn.addEventListener('click', async function() {
+            if (!currentGuess) return;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            try {
+                const guessLatLng = currentGuess.getLatLng();
+                
+                const response = await fetch('/submit_guess', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        lat: guessLatLng.lat,
+                        lon: guessLatLng.lng
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Show results
+                    document.getElementById('result-distance').textContent = data.distance_km;
+                    document.getElementById('result-score').textContent = data.score;
+                    
+                    console.log(`Distance: ${data.distance_km}km, Max Distance: ${data.max_distance}km, Score: ${data.score}`);
+                    
+                    initResultsMap(data.actual_lat, data.actual_lon, data.guess_lat, data.guess_lon);
+                    
+                    resultsModal.style.display = 'flex';
+                } else {
+                    throw new Error(data.error || 'Failed to submit guess');
+                }
+            } catch (error) {
+                console.error('Error submitting guess:', error);
+                alert('Error: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Guess';
+            }
+        });
+
+        // Play again
+        playAgainBtn.addEventListener('click', function() {
+            resultsModal.style.display = 'none';
+            gameScreen.style.display = 'none';
+            startScreen.style.display = 'flex';
+            
+            // Reset game state
+            currentGuess = null;
+            mapExpanded = false;
+            mapContainer.classList.remove('expanded');
+            expandBtn.classList.remove('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submit Guess';
+            startBtn.disabled = false;
+            startBtn.textContent = 'Start Game';
+            
+            // Clear maps
+            if (guessMap) {
+                guessMap.remove();
+                guessMap = null;
+            }
+            if (resultsMap) {
+                resultsMap.remove();
+                resultsMap = null;
+            }
+        });
+    </script>
+</body>
+</html>
